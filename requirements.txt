@@ -1,0 +1,43 @@
+# Core Flask dependencies
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# Computer Vision and Image Processing
+opencv-python-headless==4.9.0.80
+Pillow==10.2.0
+numpy==1.26.4
+
+# OCR
+easyocr==1.7.1
+
+# Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# PDF Generation
+reportlab==4.0.9
+
+# Text processing utilities
+ftfy==6.1.1
+regex==2023.12.25
+tqdm==4.66.2
+
+# YOLO Object Detection
+ultralytics==8.0.0
+
+# CLIP for semantic understanding
+# Install CLIP separately:
+# pip install git+https://github.com/openai/CLIP.git
+ftfy>=6.1.1
+regex>=2023.12.25
+tqdm>=4.66.2
+
+# For NMS operations
+torchvision>=0.15.0
+
+# Additional utilities
+pathlib2==2.3.7.post1
+
+# Optional: GroundingDINO (install separately if needed)
+# Follow GroundingDINO installation instructions from:
+# https://github.com/IDEA-Research/GroundingDINO

@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR & Object Detection System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .section {
+            margin-bottom: 40px;
+            padding: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 10px;
+            background: #fafafa;
+        }
+        
+        .section h2 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #3498db;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .upload-area:hover {
+            border-color: #2980b9;
+            background: #f8f9fa;
+        }
+        
+        .upload-area.dragover {
+            border-color: #27ae60;
+            background: #e8f5e8;
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            color: #3498db;
+            margin-bottom: 20px;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+        }
+        
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        
+        .form-control {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border-color 0.3s ease;
+        }
+        
+        .form-control:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .keywords-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            font-weight: 500;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            margin-top: 30px;
+        }
+        
+        .result-item {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .result-item h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .result-item p {
+            color: #666;
+            line-height: 1.6;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+        
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 YOLO Object Detection</h1>
+            <p>Simple object detection - Just upload images and enter keywords</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="grid">
+                <div class="section">
+                    <h2>📁 Upload Images</h2>
+                    <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                        <div class="upload-icon">📤</div>
+                        <h3>Click to upload or drag & drop</h3>
+                        <p>Supported formats: JPG, PNG, BMP, TIFF</p>
+                        <input type="file" id="fileInput" class="file-input" multiple accept="image/*">
+                    </div>
+                    <div id="uploadStatus"></div>
+                </div>
+                
+                <div class="section">
+                    <h2>🔍 Detect Objects</h2>
+                    <form id="caseForm">
+                        <div class="form-group">
+                            <label for="keywords">Enter keywords to detect (comma-separated):</label>
+                            <input type="text" id="keywords" class="keywords-input" 
+                                   placeholder="e.g., person, gun, knife, vehicle, bag" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-success" style="width: 100%; font-size: 1.2em; padding: 15px;">
+                            🚀 Detect Objects
+                        </button>
+                    </form>
+                    
+                    <div id="processStatus"></div>
+                    <div id="loading" class="loading">
+                        <div class="spinner"></div>
+                        <p>Processing images and generating report...</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>📊 Results</h2>
+                <div id="results"></div>
+            </div>
+            
+        </div>
+    </div>
+
+    <script>
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const uploadStatus = document.getElementById('uploadStatus');
+        
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            handleFiles(files);
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+        
+        function handleFiles(files) {
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('file', file);
+            }
+            
+            uploadStatus.innerHTML = '<div class="status info">Uploading files...</div>';
+            
+            fetch('/upload', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    uploadStatus.innerHTML = `<div class="status error">Error: ${data.error}</div>`;
+                } else {
+                    uploadStatus.innerHTML = `<div class="status success">✅ ${data.message} - Ready to detect objects</div>`;
+                }
+            })
+            .catch(error => {
+                uploadStatus.innerHTML = `<div class="status error">Upload failed: ${error.message}</div>`;
+            });
+        }
+        
+        // Case processing
+        const caseForm = document.getElementById('caseForm');
+        const processStatus = document.getElementById('processStatus');
+        const loading = document.getElementById('loading');
+        const results = document.getElementById('results');
+        
+        caseForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            
+            const keywords = document.getElementById('keywords').value.split(',').map(k => k.trim()).filter(k => k);
+            const caseName = `case_${Date.now()}`;
+            
+            if (keywords.length === 0) {
+                processStatus.innerHTML = '<div class="status error">Please enter keywords to detect</div>';
+                return;
+            }
+            
+            loading.style.display = 'block';
+            processStatus.innerHTML = '';
+            results.innerHTML = '';
+            
+            fetch('/process_case', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    case_name: caseName,
+                    keywords: keywords,
+                    generate_pdf: false
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                loading.style.display = 'none';
+                
+                if (data.error) {
+                    processStatus.innerHTML = `<div class="status error">Error: ${data.error}</div>`;
+                } else {
+                    const resultCount = data.results_count || 0;
+                    const detections = data.total_detections || 0;
+                    
+                    processStatus.innerHTML = `<div class="status success">✅ Processing complete! Found ${detections} objects</div>`;
+                    
+                    results.innerHTML = `
+                        <div class="result-item">
+                            <h3>🎯 Detection Results</h3>
+                            <p><strong>Images Processed:</strong> ${resultCount}</p>
+                            <p><strong>Objects Detected:</strong> ${detections}</p>
+                            <p style="margin-top: 15px; color: #27ae60; font-weight: bold;">
+                                ✅ Check the "outputs" folder for annotated images with bounding boxes
+                            </p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                loading.style.display = 'none';
+                processStatus.innerHTML = `<div class="status error">Processing failed: ${error.message}</div>`;
+            });
+        });
+    </script>
+</body>
+</html>

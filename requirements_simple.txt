@@ -1,0 +1,33 @@
+# Simplified requirements for Python 3.12 compatibility
+# Install these packages one by one if you encounter issues
+
+# Core Flask dependencies
+Flask>=3.0.0
+Werkzeug>=3.0.0
+
+# Computer Vision and Image Processing
+opencv-python-headless>=4.8.0
+Pillow>=10.0.0
+numpy>=1.24.0
+
+# OCR
+easyocr>=1.7.0
+
+# Deep Learning - CPU versions
+torch>=2.0.0
+torchvision>=0.15.0
+
+# PDF Generation
+reportlab>=4.0.0
+
+# Text processing utilities
+ftfy>=6.0.0
+regex>=2023.0.0
+tqdm>=4.60.0
+
+# Alternative to CLIP - use transformers
+transformers>=4.30.0
+sentence-transformers>=2.2.0
+
+# Additional utilities
+pathlib2>=2.3.0
