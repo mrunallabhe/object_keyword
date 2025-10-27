@@ -18,6 +18,16 @@ import numpy as np
 # Import detectors
 from yolo_detector import YOLODetector
 from weapon_detector import EnhancedWeaponDetector
+from enhanced_accuracy_detector import EnhancedAccuracyDetector
+from accuracy_enhancer import UltimateAccuracyDetector
+
+# Try to import custom trained model
+try:
+    from custom_yolo_detector import CustomYOLODetector
+    CUSTOM_MODEL_AVAILABLE = True
+except:
+    CUSTOM_MODEL_AVAILABLE = False
+    print("⚠️ Custom model not available")
 
 # Try to import enhanced CLIP
 try:
@@ -36,8 +46,33 @@ os.makedirs(app.config['OUTPUT_FOLDER'], exist_ok=True)
 
 # Initialize detectors
 print("🔍 Initializing Detection Systems...")
-yolo_detector = EnhancedWeaponDetector(conf_threshold=0.15, nms_threshold=0.4)
-print("✅ Enhanced Weapon Detector ready!")
+
+# Initialize base detector
+yolo_detector = EnhancedAccuracyDetector(conf_threshold=0.15, nms_threshold=0.4)
+use_custom = False
+use_ultimate = True
+
+# Check for custom trained model
+custom_model_path = "yolo11m.pt"
+
+if CUSTOM_MODEL_AVAILABLE and os.path.exists(custom_model_path):
+    try:
+        yolo_detector = CustomYOLODetector(model_path=custom_model_path, conf_threshold=0.4)
+        print("✅ Custom YOLO Model loaded (BUS, People, Car)")
+        use_custom = True
+    except Exception as e:
+        print(f"⚠️ Failed to load custom model: {e}")
+else:
+    print("✅ Base detector ready (Enhanced Accuracy)")
+
+# Initialize ultimate accuracy detector
+try:
+    ultimate_detector = UltimateAccuracyDetector(conf_threshold=0.15)
+    print("✅ Ultimate Accuracy Detector loaded (ensemble methods)")
+except Exception as e:
+    print(f"⚠️ Ultimate detector not available: {e}")
+    ultimate_detector = None
+    use_ultimate = False
 
 clip_detector = None
 CLIP_AVAILABLE = False
@@ -59,10 +94,29 @@ detected_objects_cache = {}
 def detect_all_objects_in_image(image_path):
     """
     Detect ALL objects in an image and return them as a list
+    Avoids re-processing enhanced images
     """
     try:
-        # Use enhanced weapon detector
-        detections = yolo_detector.detect_enhanced(image_path)
+        # Skip if already processed enhanced version
+        if '_enhanced' in image_path:
+            # Try original path
+            original_path = image_path.replace('_enhanced.jpg', '.jpg').replace('_enhanced.jpeg', '.jpeg').replace('_enhanced.png', '.png')
+            if os.path.exists(original_path):
+                image_path = original_path
+            else:
+                # Use enhanced version if original doesn't exist
+                pass
+        
+        print(f"🔍 Processing: {os.path.basename(image_path)}")
+        
+        # Use ultimate accuracy detector if available
+        if use_ultimate and ultimate_detector:
+            print("🎯 Using Ultimate Accuracy Detector with ensemble methods...")
+            detections = ultimate_detector.detect_with_maximum_accuracy(image_path)
+        elif use_custom:
+            detections = yolo_detector.detect_enhanced(image_path)
+        else:
+            detections = yolo_detector.detect_enhanced(image_path)
         
         # Extract unique object labels
         object_types = list(set([det['label'] for det in detections]))
@@ -71,6 +125,8 @@ def detect_all_objects_in_image(image_path):
         has_weapon = any(d.get('type') == 'gun_like_object' for d in detections)
         if has_weapon and 'weapon' not in object_types:
             object_types.append('weapon')
+        
+        print(f"✅ Found {len(detections)} objects: {object_types}")
         
         return {
             'objects': object_types,
@@ -85,54 +141,65 @@ def detect_all_objects_in_image(image_path):
 def search_images_by_keyword(keyword):
     """
     Search all uploaded images for a keyword and return matching images
+    Shows ALL matching images, not just one
     """
     results = []
     
-    # Scan all images in uploads folder
+    # Scan all images in uploads folder (only originals)
     image_files = []
     for ext in ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tiff'):
         image_files.extend(glob.glob(os.path.join(app.config['UPLOAD_FOLDER'], ext)))
     
+    # Filter out enhanced duplicates
+    original_images = []
+    processed_filenames = set()
+    
     for img_path in image_files:
         filename = os.path.basename(img_path)
+        base_name = filename.replace('_enhanced.jpg', '.jpg').replace('_enhanced.jpeg', '.jpeg').replace('_enhanced.png', '.png')
         
-        # Get detected objects for this image (from cache or detect)
+        # Only process once per original
+        if base_name not in processed_filenames and '_enhanced' not in filename:
+            original_images.append(img_path)
+            processed_filenames.add(base_name)
+    
+    print(f"🔍 Searching through {len(original_images)} images for keyword: {keyword}")
+    
+    for img_path in original_images:
+        filename = os.path.basename(img_path)
+        
+        # Get detected objects for this image
         if filename in detected_objects_cache:
             detected_objects = detected_objects_cache[filename]['objects']
+            result_data = detected_objects_cache[filename]
         else:
-            result = detect_all_objects_in_image(img_path)
-            detected_objects = result['objects']
-            detected_objects_cache[filename] = result
+            result_data = detect_all_objects_in_image(img_path)
+            detected_objects = result_data['objects']
+            detected_objects_cache[filename] = result_data
         
         # Check if keyword matches
         keyword_lower = keyword.lower().strip()
+        matched = False
+        match_type = ''
         
         # Direct match
-        if any(keyword_lower in obj.lower() for obj in detected_objects):
+        for obj in detected_objects:
+            if keyword_lower in obj.lower():
+                matched = True
+                match_type = 'direct'
+                break
+        
+        if matched:
             results.append({
                 'filename': filename,
                 'objects': detected_objects,
                 'matched': True,
-                'match_type': 'direct'
+                'match_type': match_type,
+                'count': result_data.get('count', 0)
             })
-        # Use CLIP for semantic matching if available
-        elif CLIP_AVAILABLE:
-            try:
-                # Get CLIP similarity for the keyword
-                clip_results = clip_detector.detect_all_objects_in_image(img_path, [keyword])
-                similarity = clip_results.get(keyword, 0)
-                
-                if similarity > 0.25:  # Threshold for semantic match
-                    results.append({
-                        'filename': filename,
-                        'objects': detected_objects,
-                        'matched': True,
-                        'match_type': 'semantic',
-                        'similarity': similarity
-                    })
-            except:
-                pass
+            print(f"✅ Match found in: {filename}")
     
+    print(f"📊 Total matches found: {len(results)}")
     return results
 
 @app.route('/')
@@ -167,20 +234,30 @@ def upload_file():
 def list_all_objects():
     """
     List all objects detected in all uploaded images
+    Filters out duplicate enhanced images
     """
     image_files = []
     for ext in ('*.jpg', '*.jpeg', '*.png', '*.bmp', '*.tiff'):
         image_files.extend(glob.glob(os.path.join(app.config['UPLOAD_FOLDER'], ext)))
     
-    all_objects = {}
-    
+    # Filter out enhanced images to avoid duplicates
+    original_images = []
     for img_path in image_files:
         filename = os.path.basename(img_path)
+        if '_enhanced' not in filename:  # Only process original images
+            original_images.append(img_path)
+    
+    all_objects = {}
+    
+    for img_path in original_images:
+        filename = os.path.basename(img_path)
         
-        if filename in detected_objects_cache:
+        # Skip if already processed
+        if filename in detected_objects_cache and detected_objects_cache[filename].get('processed'):
             result = detected_objects_cache[filename]
         else:
             result = detect_all_objects_in_image(img_path)
+            result['processed'] = True  # Mark as processed
             detected_objects_cache[filename] = result
         
         all_objects[filename] = {
@@ -188,7 +265,7 @@ def list_all_objects():
             'count': result['count']
         }
     
-    # Get unique list of all objects
+    # Get unique list of all objects across all images
     unique_objects = set()
     for data in all_objects.values():
         unique_objects.update(data['objects'])
